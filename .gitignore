@@ -1,0 +1,12 @@
+# GitHub
+.github/
+
+# Salesforce / SFDX
+.sfdx/
+.forceignore
+
+# Node / tooling
+node_modules/
+coverage/
+.DS_Store
+*.log

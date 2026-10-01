@@ -24,42 +24,15 @@ This repository contains a production-ready SFDX project that:
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Agentforce Agent                          │
-│          (Conversational interface for backfills)             │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-                           │ Invokes
-                           ▼
-          ┌────────────────────────────────┐
-          │  OrderBackfillAction           │
-          │  (Invocable Apex method)       │
-          └────────┬───────────────────────┘
-                   │
-        ┌──────────┴──────────┐
-        ▼                     ▼
-┌──────────────────┐  ┌──────────────────────────┐
-│ Order Backfill   │  │ Inventory Adjustment     │
-│ Service          │  │ Service                  │
-└────────┬─────────┘  └────────┬─────────────────┘
-         │                     │
-         │                     ▼
-         │           ┌─────────────────────┐
-         │           │ Inventory Discount  │
-         │           │ Flagging            │
-         │           └─────────────────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│ External Order Connector │
-│ (Pluggable interface)    │
-└────────┬─────────────────┘
-         │
-    ┌────┴────┬─────────┬──────────┐
-    ▼         ▼         ▼          ▼
- Shopify  Commerce  Mock        Custom
-         Cloud    Connector       API
+```mermaid
+flowchart LR
+    A[External Store] --> B[External Order Connector]
+    B --> C[OrderBackfillAction Invocable Apex]
+    C --> D[Order Backfill Service]
+    C --> E[Inventory Adjustment Service]
+    D --> F[(Salesforce Orders)]
+    E --> G[(Inventory / Discrepancy Records)]
+    C --> H[(Backfill Job Tracking)]
 ```
 
 ## Quick Start
@@ -83,7 +56,7 @@ sf org create scratch -f config/project-scratch-def.json --set-default
 sf project deploy start
 
 # Run tests
-sf apex run test --test-level RunAllTestsInNamespace
+sf apex run test --test-level RunLocalTests
 
 # Open the org
 sf org open
@@ -97,7 +70,7 @@ sf org open
 
 ### Set Up Agentforce Integration
 
-See **[AGENTFORCE_SETUP.md](./docs/AGENTFORCE_SETUP.md)** for detailed instructions on:
+See **[docs/AGENTFORCE_SETUP.md](./docs/AGENTFORCE_SETUP.md)** for detailed instructions on:
 - Registering the `OrderBackfillAction` as an Agentforce action
 - Configuring agent topics and prompts
 - Testing end-to-end conversational workflows
@@ -108,29 +81,12 @@ See **[AGENTFORCE_SETUP.md](./docs/AGENTFORCE_SETUP.md)** for detailed instructi
 aforceAI/
 ├── force-app/main/default/
 │   ├── classes/
-│   │   ├── OrderBackfillAction.cls
-│   │   ├── OrderBackfillService.cls
-│   │   ├── InventoryAdjustmentService.cls
-│   │   ├── ExternalOrderConnector.cls
-│   │   ├── ShopifyOrderConnector.cls
-│   │   ├── MockOrderConnector.cls
-│   │   ├── BackfillJobManager.cls
-│   │   └── *_Test.cls (test classes)
 │   ├── objects/
-│   │   ├── Backfill_Job__c.object-meta.xml
-│   │   └── Order.object-meta.xml
 │   ├── namedCredentials/
-│   │   └── ExternalOrderAPI.namedCredential-meta.xml
 │   └── ...
 ├── docs/
-│   ├── README.md (this file)
-│   ├── SETUP.md (deployment guide)
-│   └── AGENTFORCE_SETUP.md (Agentforce configuration)
 ├── sample-data/
-│   ├── sample_orders.json
-│   └── sample_inventory.json
 ├── .github/workflows/
-│   └── validate-sfdx.yml
 ├── sfdx-project.json
 ├── .forceignore
 └── .gitignore
@@ -139,7 +95,7 @@ aforceAI/
 ## Key Concepts
 
 ### Idempotency
-Orders are upsererted using the `External_Order_Id__c` field as the external ID. Running the backfill multiple times for the same date range will not create duplicates.
+Orders are upserted using the `External_Order_Id__c` field as the external ID. Running the backfill multiple times for the same date range will not create duplicates.
 
 ### Backfill Job Tracking
 Every backfill run creates a `Backfill_Job__c` record that tracks:
@@ -157,14 +113,14 @@ To add support for a new data source:
 2. Implement `fetchOrders(startDate, endDate)`
 3. Register in Custom Metadata `Integration_Config__mdt`
 
-See **[SETUP.md](./docs/SETUP.md)** for detailed examples.
+See **[docs/SETUP.md](./docs/SETUP.md)** for detailed examples.
 
 ## Testing
 
 Run Apex tests with:
 
 ```bash
-sf apex run test --test-level RunAllTestsInNamespace
+sf apex run test --test-level RunLocalTests
 ```
 
 Expected coverage: **≥85%** on core service classes.
@@ -176,9 +132,9 @@ Test classes included:
 
 ## Documentation
 
-- **[SETUP.md](./docs/SETUP.md)** — Deployment, configuration, and troubleshooting
-- **[AGENTFORCE_SETUP.md](./docs/AGENTFORCE_SETUP.md)** — Agentforce agent integration guide
-- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Detailed data flow and design patterns
+- **[docs/SETUP.md](./docs/SETUP.md)** — Deployment, configuration, and troubleshooting
+- **[docs/AGENTFORCE_SETUP.md](./docs/AGENTFORCE_SETUP.md)** — Agentforce integration guide
+- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — Detailed data flow and design patterns
 
 ## License
 
