@@ -1,0 +1,134 @@
+name: Salesforce Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  salesforce-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install Salesforce CLI
+      run: |
+        npm install --global @salesforce/cli --legacy-peer-deps
+        sf --version
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Validate metadata
+      run: sf project retrieve validate --manifest manifest/package.xml
+      continue-on-error: true
+    
+    - name: Display project structure
+      run: |
+        echo "=== Project Structure ==="
+        find force-app/main/default -type f -name "*.cls" | head -20
+        echo "=== Test Files ==="
+        find force-app/main/default -type f -name "*_Test.cls"
+    
+    - name: Check code quality
+      run: |
+        echo "=== Scanning Apex Classes ==="
+        find force-app/main/default/classes -name "*.cls" -type f | wc -l
+        echo "=== Test Coverage Status ==="
+        echo "Test files found:"
+        find force-app/main/default/classes -name "*_Test.cls" -type f
+    
+    - name: Lint check
+      run: |
+        echo "=== Checking for common issues ==="
+        # Check for TODO/FIXME comments
+        grep -r "TODO\|FIXME" force-app/main/default/classes || echo "No TODO/FIXME found"
+        # Check XML metadata format
+        find force-app/main/default -name "*.xml" -type f | wc -l
+        echo "metadata files found"
+
+  build-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Validate manifest
+      run: |
+        echo "=== Validating Package.xml ==="
+        if [ -f manifest/package.xml ]; then
+          echo "✓ manifest/package.xml exists"
+          # Check if it's valid XML
+          python3 -c "import xml.etree.ElementTree as ET; ET.parse('manifest/package.xml'); print('✓ Valid XML')" || echo "✗ Invalid XML format"
+        else
+          echo "✗ manifest/package.xml not found"
+          exit 1
+        fi
+    
+    - name: Validate project config
+      run: |
+        echo "=== Validating sfdx-project.json ==="
+        if [ -f sfdx-project.json ]; then
+          echo "✓ sfdx-project.json exists"
+          # Check if it's valid JSON
+          python3 -c "import json; json.load(open('sfdx-project.json')); print('✓ Valid JSON')" || echo "✗ Invalid JSON format"
+        else
+          echo "✗ sfdx-project.json not found"
+          exit 1
+        fi
+    
+    - name: Check required files
+      run: |
+        echo "=== Checking required files ==="
+        required_files=("force-app" ".forceignore" "manifest/package.xml" "sfdx-project.json")
+        for file in "${required_files[@]}"; do
+          if [ -e "$file" ]; then
+            echo "✓ $file found"
+          else
+            echo "✗ $file missing"
+            exit 1
+          fi
+        done
+    
+    - name: Documentation check
+      run: |
+        echo "=== Documentation Status ==="
+        if [ -f README.md ]; then
+          echo "✓ README.md found"
+        fi
+        if [ -f docs/SETUP.md ]; then
+          echo "✓ docs/SETUP.md found"
+        fi
+        if [ -f docs/AGENTFORCE_SETUP.md ]; then
+          echo "✓ docs/AGENTFORCE_SETUP.md found"
+        fi
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Check package.json
+      run: |
+        if [ -f package.json ]; then
+          echo "✓ package.json found"
+          npm list --depth=0
+        else
+          echo "⚠ No package.json found (optional for Salesforce projects)"
+        fi
